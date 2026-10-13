@@ -1,7 +1,13 @@
-# FACD: Feature-Aware Chamfer Distance
+# SHREC 2026: Reconstruction of high-frequency geometry in synthetic heritage
 
-## Compute FACD
+- Novel synthetic Khachkar dataset for evaluating untextured 3D stone surfaces.
+- FACD metric penalizes smoothing bias to evaluate fine 3D micro-topography.
+- Evaluation of 8 reconstruction paradigms shows that global averages misrank methods.
 
+
+## FACD: Feature-Aware Chamfer Distance
+
+### Compute FACD
 
 
 # Citation
