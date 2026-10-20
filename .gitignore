@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local installation and data (install.sh, download_data.sh, reproduce_table4.sh)
+.miniforge/
+.env/
+/data/
+/results/

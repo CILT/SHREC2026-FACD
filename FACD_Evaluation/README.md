@@ -1,6 +1,5 @@
 FACD is built upon CD wrapper [chamferdist](https://github.com/krrish94/chamferdist).
 
-See instructions for setting up necessary code.
 
 # chamferdist: PyTorch Chamfer distance
 
@@ -12,42 +11,17 @@ A simple example Pytorch module to compute Chamfer distance between two pointclo
 
 ### Installation
 
-You can install the package using `pip`.
-> **NOTE**: This is not working for some reason. See 'Building from source'.
+Use `install.sh` at the repository root (see the main README). To build the C++/CUDA
+extension by hand inside an environment that already has PyTorch:
 
 ```
-pip install chamferdist
+cd FACD_Evaluation
+python setup.py build_ext --inplace     # creates localchamferdist/_C*.so
 ```
 
-### Building from source
-
-In your favourite python/conda virtual environment, execute the following commands. 
-
-> **NOTE**: This assumes you have PyTorch installed already (preferably, >= 1.5.0; untested for earlier releases).
-
-> Currently tested with CUDA 11.8 (with CONDA).
-
-It is recommended to utilize Conda environment.
-
-Steps for environment creation:
-```
-mv localchamferdist/ chamferdist/
-conda create -n chamfer python=3.10
-conda activate chamfer
-conda install -c nvidia -c conda-forge cudatoolkit=11.8.0 cudatoolkit-dev
-pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu118
-conda install 'gxx=[version=">=6.0.0, <12.0"]' -c conda-forge
-```
-
-Then, install `chamferdist`:
-```python
-python setup.py install
-```
-
-And finally:
-```
-mv chamferdist/ localchamferdist/
-```
+`FORCE_CUDA=1` forces the CUDA build when no GPU is visible at build time. CUDA 11.8 requires
+GCC < 12. Without the extension, `localchamferdist` uses an exact scipy KD-tree for the
+nearest-neighbour search (K=1, not differentiable), which is what runs on CPU.
 
 ### Running (example)
 
@@ -62,8 +36,8 @@ That's it! You're now ready to go. Here's a quick guide to using the package. Fi
 Create two random pointclouds. Each pointcloud is a **3D tensor** with dimensions `batchsize` x `number of points` x `number of dimensions`.
 
 ```python
->>> source_cloud = torch.randn(1, 100, 3).cuda()
->>> target_cloud = torch.randn(1, 50, 3).cuda()
+>>> source_cloud = torch.randn(1, 100, 3)
+>>> target_cloud = torch.randn(1, 50, 3)
 ```
 
 Initialize a `ChamferDistance` object.
@@ -95,7 +69,6 @@ Typically, a symmetric version of the Chamfer distance is obtained, by summing t
 >>> print(dist_bidirectional.detach().cpu().item())
 ```
 
-Look at the example script for more details: [example.py](example.py)
 
 
 ### Citing (the original implementation, PyTorch3D)

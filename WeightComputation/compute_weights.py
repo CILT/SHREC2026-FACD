@@ -156,10 +156,10 @@ def compute_and_save_semantic_weights(
     print(f"Mean Weight: {np.mean(weights):.4f}")
 
 
-def process_all_directories(root_directory: str):
+def process_all_directories(root_directory: str, output_name: str = "gt_curvature.json", overwrite: bool = False):
     if not os.path.exists(root_directory):
         print(f"Error: The directory '{root_directory}' does not exist.")
-        return
+        return 1
 
     print(f"Starting batch process in: {root_directory}")
     print("===================================================")
@@ -170,9 +170,9 @@ def process_all_directories(root_directory: str):
     for dirpath, dirnames, filenames in os.walk(root_directory):
         if "gt.obj" in filenames:
             obj_path = os.path.join(dirpath, "gt.obj")
-            json_output_path = os.path.join(dirpath, "gt_curvature.json")
+            json_output_path = os.path.join(dirpath, output_name)
             
-            if os.path.exists(json_output_path):
+            if os.path.exists(json_output_path) and not overwrite:
                 print(f"Skipping {os.path.basename(dirpath)} - already exists.")
                 continue
                 
@@ -196,6 +196,7 @@ def process_all_directories(root_directory: str):
     print(f"Successfully processed: {success_count} meshes.")
     if fail_count > 0:
         print(f"Skipped due to critical C++ failure: {fail_count} meshes.")
+    return fail_count
 
 
 if __name__ == "__main__":
@@ -204,6 +205,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Compute curvature-based semantic weights for 3D meshes.")
     parser.add_argument("--root_dir", type=str, default="./gathered_objects", help="Root directory containing experiment folders.")
+    parser.add_argument("--output_name", type=str, default="gt_curvature.json", help="Name of the weights JSON written next to each gt.obj.")
+    parser.add_argument("--overwrite", action="store_true", help="Recompute weights even if the JSON already exists.")
     args = parser.parse_args() 
     ROOT_DIR = args.root_dir
-    process_all_directories(ROOT_DIR)
+    failed = process_all_directories(ROOT_DIR, args.output_name, args.overwrite)
+    raise SystemExit(1 if failed else 0)
