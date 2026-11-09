@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # Install everything needed to run the FACD code on a vanilla Linux (x86_64) system.
 #
-#   bash install.sh          CPU only (default, enough to reproduce Table 4)
-#   bash install.sh --cuda   also builds the CUDA nearest-neighbour extension used in the paper
-#                            (needs an NVIDIA GPU and driver supporting CUDA 11.8)
+#   bash installation/install_dependencies.sh          CPU only (default, enough to reproduce Table 4)
+#   bash installation/install_dependencies.sh --cuda   also builds the CUDA nearest-neighbour extension
+#                                                      used in the paper (needs an NVIDIA GPU and a
+#                                                      driver supporting CUDA 11.8)
 #
 # Nothing is installed system-wide and no root access is needed: a private Miniforge is
 # downloaded to ./.miniforge and the Python environment is created in ./.env.
 # Remove both folders to uninstall.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONDA_DIR="$ROOT/.miniforge"
 ENV_DIR="$ROOT/.env"
+ENVIRONMENT="$ROOT/installation/environment.yml"
 MINIFORGE_VERSION="24.11.3-2"
 MINIFORGE_URL="https://github.com/conda-forge/miniforge/releases/download/${MINIFORGE_VERSION}/Miniforge3-${MINIFORGE_VERSION}-Linux-x86_64.sh"
 TORCH_VERSION="2.7.1"
@@ -25,6 +27,11 @@ for arg in "$@"; do
         *) echo "Unknown option: $arg"; exit 1 ;;
     esac
 done
+
+if [[ ! -f "$ENVIRONMENT" ]]; then
+    echo "ERROR: environment file not found: $ENVIRONMENT"
+    exit 1
+fi
 
 download() {  # download <url> <output file>
     if command -v wget >/dev/null 2>&1; then
@@ -54,17 +61,21 @@ CONDA=("$CONDA_DIR/bin/python" -m conda)
 # ------------------------------------------------------------
 if [[ ! -x "$ENV_DIR/bin/python" ]]; then
     echo "==> Creating the Python environment in $ENV_DIR"
-    "${CONDA[@]}" create -y -q -p "$ENV_DIR" -c conda-forge python=3.10
-fi
-PIP="$ENV_DIR/bin/python -m pip"
-
-echo "==> Installing Python packages"
-if [[ $WITH_CUDA -eq 1 ]]; then
-    $PIP install "torch==${TORCH_VERSION}" --index-url https://download.pytorch.org/whl/cu118
+    "${CONDA[@]}" env create -y -q -p "$ENV_DIR" -f "$ENVIRONMENT"
 else
-    $PIP install "torch==${TORCH_VERSION}" --index-url https://download.pytorch.org/whl/cpu
+    # Keep an existing environment in sync with installation/environment.yml.
+    echo "==> Updating the Python environment in $ENV_DIR"
+    "${CONDA[@]}" env update -q -p "$ENV_DIR" -f "$ENVIRONMENT"
 fi
-$PIP install -r "$ROOT/requirements.txt"
+PIP=("$ENV_DIR/bin/python" -m pip)
+
+echo "==> Installing PyTorch 2.6.0"
+if [[ $WITH_CUDA -eq 1 ]]; then
+    "${PIP[@]}" install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu118
+# For CUDA 11.8
+else
+    "${PIP[@]}" install "torch==${TORCH_VERSION}" --index-url https://download.pytorch.org/whl/cpu
+fi
 
 # ------------------------------------------------------------
 # 3. Optional: CUDA KNN extension (localchamferdist._C)
@@ -93,10 +104,10 @@ fi
 # ------------------------------------------------------------
 cd "$ROOT/FACD_Evaluation"
 "$ENV_DIR/bin/python" - <<'EOF'
-import igl, meshio, scipy, torch
+import igl, meshio, scipy, torch, yaml
 from localchamferdist import chamfer
 print(f"torch {torch.__version__}, CUDA available: {torch.cuda.is_available()}")
 print("Nearest-neighbour backend:",
       "CUDA extension" if chamfer._C is not None and torch.cuda.is_available() else "scipy KD-tree (CPU)")
 EOF
-echo "==> Installation complete. Run: bash reproduce_table4.sh"
+echo "==> Installation complete. Run: bash scripts/reproduce_table_04.sh"
