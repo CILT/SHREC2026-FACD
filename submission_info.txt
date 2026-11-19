@@ -7,30 +7,86 @@ Title
 Authors
     Cristián Llull, Ivan Sipiran, Francisca Gil, Nelson Baloian, Anthony Belessis, Vlassis Fotis,
     George Ioannakis, Efthymios Koukoulis, Konstantinos Moustakas, Sotiris Papatheodorou,
-    Ioannis Pratikakis, Ioannis Romanelis, Kriti Singh, Eleftheria Solomonidi, Christoforos Vlachos,
-    Vaia Zachari
+    Ioannis Pratikakis, Ioannis Romanelis, Kriti Singh, Eleftheria Solomonidi, Christoforos Vlachos
+    and Vaia Zachari
 
 Venue
     Computers & Graphics 139 (2026) 104726, https://doi.org/10.1016/j.cag.2026.104726
 
 Operating system
     Linux x86_64 (Ubuntu 22.04 LTS or newer). Developed and tested on Debian GNU/Linux 12.
-    Only bash, tar, sha256sum and wget (or curl) are required from the system; install.sh
-    downloads everything else into the repository folder, without root access.
+    Only bash, tar, sha256sum, awk and one of wget, curl or python3 are required from
+    the system; installation/install_dependencies.sh downloads everything else into
+    the repository folder, without root access.
 
 Hardware
     Any x86_64 CPU and < 1 GB of RAM. No GPU needed. Optionally, an NVIDIA GPU with a driver
     supporting CUDA 11.8 runs the CUDA nearest-neighbour kernel used for the paper
-    (bash install.sh --cuda).
+    (bash installation/install_dependencies.sh --cuda).
 
 Reproduced result
     Table 4 of the paper (CD, FACD, HFACD and HFACD2 of the eight reconstructions of four objects).
 
-Commands (from the repository root)
-    bash install.sh            # ~2 min: private Miniforge + Python environment in ./.miniforge, ./.env
-    bash reproduce_table4.sh   # ~7 min on 8 CPU cores: downloads the data (~480 MB), computes the
-                               # FACD weights and distances, writes results/table4.md and compares
-                               # every value with the paper (prints "RESULT: PASS").
+Data
+    Evaluation subset (~480 MB): Zenodo record 23584779 (DOI 10.5281/zenodo.23584779),
+    archive SHREC2026_FACD_Table4.tar.gz, SHA-256 in download/SHA256SUMS.txt.
+    Figure 1 sample: sample/figure_01.tar.gz (~13 MB, included in the repository;
+    scripts/reproduce_figure_01.sh renders docs/teaser_250x250.png).
+    Full 616-object dataset:
+    https://www.kaggle.com/datasets/cristianllull/shrec-2026-retrieval-of-high-frequency-geometry
+    Full ground-truth archives: the same Zenodo record (four category archives).
+    See README.md, section "The dataset", for the difference between the two.
 
-    reproduce_table4.sh takes no parameters and also runs install.sh if it has not been run.
-    See README.md, section "Reproducing Table 4", for the expected output and the output formats.
+License
+    Code: MIT (LICENSE). Ground-truth meshes and curvature annotations in the Zenodo
+    record: CC BY 4.0. Renders and camera parameters on Kaggle: Apache 2.0.
+    Reconstructions in the evaluation archive are attributed to the participating
+    teams in that archive's README.
+
+Commands (from the repository root)
+    bash installation/install_dependencies.sh   # ~2 min: private Miniforge + Python environment
+    bash scripts/reproduce_table_04.sh          # ~7 min on 8 CPU cores: downloads the data,
+                                                # computes the FACD weights and distances, writes
+                                                # results/table4.md and compares every value with
+                                                # the paper (prints "RESULT: PASS").
+
+    scripts/reproduce_table_04.sh takes no parameters and also runs the installation and
+    download steps if needed. See README.md, section "GRSI replication package", for the
+    expected output and the output formats.
+
+Optional: evaluate a single reconstruction
+    .env/bin/python scripts/evaluate_reconstruction.py \
+        --ground_truth data/SHREC2026_FACD_Table4/<object>/gt.obj \
+        --reconstruction data/SHREC2026_FACD_Table4/<object>/<reconstruction>
+    See sample/README.md.
+
+Optional: reproduce the README teaser (Figure 1)
+    bash scripts/reproduce_figure_01.sh
+    See README.md, section "Reproducing Figure 1".
+
+Camera alignment (VGGT reconstructions in Table 4)
+    alignment/align_umeyama_iterations.py
+    The four VGGT reconstructions in the evaluation archive were aligned with
+    this script (keep_ratio=0.8, paper Sec. 3.3). The archive contains the
+    aligned models, so running it is not needed to reproduce Table 4.
+    See README.md, section "Camera alignment for the VGGT reconstructions".
+
+Documentation
+    README.md            project, full dataset and GRSI replication package
+    download/README.md   the two downloaders and the checksum manifest
+    results/README.md    output files and PASS/FAIL criteria
+    sample/README.md     single-reconstruction evaluation example
+    alignment/README.md  optional camera-alignment environment and usage
+
+Submission form quick facts
+    Code URL:          https://github.com/CILT/SHREC2026-FACD
+    Short description: Feature-Aware Chamfer Distance (FACD): curvature-based per-vertex
+                       weights and weighted Chamfer distances for evaluating high-frequency
+                       3D reconstruction. One script reproduces Table 4 (CD/FACD/HFACD/HFACD2
+                       of 8 reconstructions, 4 objects) on CPU; an optional CUDA kernel is
+                       also provided.
+    Operating system:  Linux
+    PNG (250x250):     docs/teaser_250x250.png
+                       (after merging into main:
+                       https://raw.githubusercontent.com/CILT/SHREC2026-FACD/main/docs/teaser_250x250.png)
+    Journal:           Elsevier Computers & Graphics
