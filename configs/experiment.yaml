@@ -1,0 +1,79 @@
+# Experiment configuration for the SHREC 2026 FACD evaluation.
+#
+# The values reproduce the protocol of the paper (Secs. 3.2 and 4). Paths are
+# relative to the repository root. scripts/reproduce_table_04.sh and
+# scripts/evaluate_reconstruction.py read this file; the download scripts read
+# the `data` section.
+project:
+  name: "SHREC 2026: Reconstruction of High-Frequency Geometry in Synthetic Heritage"
+  paper_doi: "10.1016/j.cag.2026.104726"
+  license: "MIT"
+
+data:
+  # Zenodo record of the evaluation subset (SHREC2026_FACD_Table4.tar.gz, ~480 MB).
+  # The same record holds the full ground-truth dataset; see download/README.md.
+  zenodo_record: "23584779"
+  doi: "10.5281/zenodo.23584779"
+  archive: "SHREC2026_FACD_Table4.tar.gz"
+  checksums: "download/SHA256SUMS.txt"
+  # Direct URL of the archive. Leave empty to build it from zenodo_record and
+  # archive above. Set it if the archive is hosted elsewhere (e.g. Kaggle).
+  url: ""
+  # Extracted evaluation subset: four object folders with gt.obj,
+  # gt_curvature_paper.json and the eight reconstructions.
+  root: "data/SHREC2026_FACD_Table4"
+  # Mirrors EXAMPLES in FACD_Evaluation/make_table4.py (the Table 4 rows).
+  objects:
+    - "90_1920x1080_relief_heightmap_5_one_face_wide"
+    - "90_1920x1080_relief_heightmap_6_one_face_large"
+    - "90_1920x1080_relief_heightmap_3_one_face_large_pyramid"
+    - "90_1920x1080_relief_heightmap_1_all_wide_package"
+  full_dataset:
+    # 616 objects, 90 renderings at 1920x1080 per object, COLMAP and JSON poses.
+    kaggle: "https://www.kaggle.com/datasets/cristianllull/shrec-2026-retrieval-of-high-frequency-geometry"
+
+# Figure 1 of the paper / the teaser image in README.md (relief 1, one_face).
+# scripts/reproduce_figure_01.sh renders this weight map. The object is not part
+# of the four Table 4 objects, so it is looked up in the full dataset if needed;
+# see download/README.md, "Figure 1 data".
+figure:
+  object: "90_1920x1080_relief_heightmap_1_one_face"
+  # Used with a warning when the exact object is not available.
+  fallback_object: "90_1920x1080_relief_heightmap_5_one_face_wide"
+  output: "results/figure_01.png"
+  size_px: 250
+
+# Curvature-based FACD weights (paper Sec. 3.2.1). The defaults are the values
+# used for the paper; changing them changes the FACD values.
+weights:
+  baseline_weight: 1.0
+  scale_factor: 299.0
+  gamma: 2.0
+  clamp_percentile: 90.0
+  active_threshold: 1.0e-5
+  computed_name: "gt_curvature.json"
+  paper_name: "gt_curvature_paper.json"
+
+# Reconstructions evaluated in Table 4 (paper Sec. 4). The key is the method
+# name in the table; the value is the file inside each object folder. This
+# mirrors SOURCES in FACD_Evaluation/compute_facd.py, which is the authoritative
+# list used by the reproduction script; edit both to add or rename a method.
+distances:
+  methods:
+    colmap: "colmap.ply"
+    neus: "NeuS_00140000.ply"
+    sam_sugar: "SAMplify_SuGaR.obj"
+    nerf_instantngp: "NeRF_InstantNGP.ply"
+    vggt_frame: "vggt_frame.ply"
+    vggt_100k: "vggt_sparse_100000_aligned.ply"
+    vggt: "vggt_sparse_aligned.ply"
+    vggt_high_def: "vggt_sparse_res1920_1000000_aligned.ply"
+
+evaluation:
+  # auto: CUDA when available and the extension is built, otherwise CPU.
+  device: "auto"
+  metrics: ["cd", "hcd", "hcd_2", "facd", "hfacd", "hfacd_2"]
+
+results:
+  # Generated files are ignored by Git; results/README.md documents them.
+  dir: "results"
