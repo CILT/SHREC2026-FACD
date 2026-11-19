@@ -11,7 +11,7 @@ A simple example Pytorch module to compute Chamfer distance between two pointclo
 
 ### Installation
 
-Use `install.sh` at the repository root (see the main README). To build the C++/CUDA
+Use `installation/install_dependencies.sh` at the repository root (see the main README). To build the C++/CUDA
 extension by hand inside an environment that already has PyTorch:
 
 ```

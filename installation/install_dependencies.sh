@@ -17,7 +17,12 @@ ENV_DIR="$ROOT/.env"
 ENVIRONMENT="$ROOT/installation/environment.yml"
 MINIFORGE_VERSION="24.11.3-2"
 MINIFORGE_URL="https://github.com/conda-forge/miniforge/releases/download/${MINIFORGE_VERSION}/Miniforge3-${MINIFORGE_VERSION}-Linux-x86_64.sh"
-TORCH_VERSION="2.7.1"
+# CPU and CUDA 11.8 use different PyTorch builds. torch 2.6.0 is the CUDA 11.8
+# build used for the optional extension; torch 2.7.1 is the CPU build.
+TORCH_VERSION_CPU="2.7.1"
+TORCH_VERSION_CUDA="2.6.0"
+TORCHVISION_VERSION_CUDA="0.21.0"
+TORCHAUDIO_VERSION_CUDA="2.6.0"
 
 WITH_CUDA=0
 for arg in "$@"; do
@@ -38,8 +43,10 @@ download() {  # download <url> <output file>
         wget -q --show-progress -O "$2" "$1"
     elif command -v curl >/dev/null 2>&1; then
         curl -fL --progress-bar -o "$2" "$1"
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -c 'import sys, urllib.request; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' "$1" "$2"
     else
-        echo "ERROR: neither wget nor curl is available."; exit 1
+        echo "ERROR: neither wget, curl nor python3 is available."; exit 1
     fi
 }
 
@@ -69,12 +76,17 @@ else
 fi
 PIP=("$ENV_DIR/bin/python" -m pip)
 
-echo "==> Installing PyTorch 2.6.0"
+echo "==> Installing PyTorch"
 if [[ $WITH_CUDA -eq 1 ]]; then
-    "${PIP[@]}" install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu118
-# For CUDA 11.8
+    echo "    torch ${TORCH_VERSION_CUDA} (CUDA 11.8 wheel)"
+    "${PIP[@]}" install \
+        "torch==${TORCH_VERSION_CUDA}" \
+        "torchvision==${TORCHVISION_VERSION_CUDA}" \
+        "torchaudio==${TORCHAUDIO_VERSION_CUDA}" \
+        --index-url https://download.pytorch.org/whl/cu118
 else
-    "${PIP[@]}" install "torch==${TORCH_VERSION}" --index-url https://download.pytorch.org/whl/cpu
+    echo "    torch ${TORCH_VERSION_CPU} (CPU wheel)"
+    "${PIP[@]}" install "torch==${TORCH_VERSION_CPU}" --index-url https://download.pytorch.org/whl/cpu
 fi
 
 # ------------------------------------------------------------
