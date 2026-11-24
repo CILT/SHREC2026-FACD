@@ -27,7 +27,9 @@ def compute_and_save_semantic_weights(
     output_path: str,
     baseline_weight: float = 1.0,
     scale_factor: float = 299.0,
-    gamma: float = 2.0
+    gamma: float = 2.0,
+    active_threshold: float = 1e-5,
+    clamp_percentile: float = 90.0
 ) -> None:
     if not os.path.exists(obj_path):
         raise FileNotFoundError(f"OBJ file not found at: {obj_path}")
@@ -121,11 +123,11 @@ def compute_and_save_semantic_weights(
     raw_metric = np.nan_to_num(raw_metric, nan=0.0, posinf=0.0, neginf=0.0)
 
     # Only calculate percentiles on the actual carvings, ignoring flat background rock
-    active_curvatures = raw_metric[raw_metric > 1e-5]
+    active_curvatures = raw_metric[raw_metric > active_threshold]
     if len(active_curvatures) > 0:
-        p_upper = np.percentile(active_curvatures, 90)
+        p_upper = np.percentile(active_curvatures, clamp_percentile)
     else:
-        p_upper = 1e-5
+        p_upper = active_threshold
 
     p_lower = 0.0
     raw_metric_clamped = np.clip(raw_metric, p_lower, p_upper)
@@ -149,19 +151,32 @@ def compute_and_save_semantic_weights(
         json.dump(weight_map, file, separators=(',', ':'))
         
     print(f"Export completed in {time.time() - start_time:.2f}s.")
-    print(f"Max Clamped (300): {np.sum(weights >= 299.99)} vertices.")
+    max_weight = baseline_weight + scale_factor
+    print(f"Max Clamped ({max_weight:.4f}): {np.sum(weights >= max_weight - 1e-2)} vertices.")
     print(f"\n--- Final Weight Stats ---")
     print(f"Min Weight:  {np.min(weights):.4f}")
     print(f"Max Weight:  {np.max(weights):.4f}")
     print(f"Mean Weight: {np.mean(weights):.4f}")
 
 
-def process_all_directories(root_directory: str):
+def process_all_directories(
+    root_directory: str,
+    output_name: str = "gt_curvature.json",
+    overwrite: bool = False,
+    baseline_weight: float = 1.0,
+    scale_factor: float = 299.0,
+    gamma: float = 2.0,
+    active_threshold: float = 1e-5,
+    clamp_percentile: float = 90.0
+):
     if not os.path.exists(root_directory):
         print(f"Error: The directory '{root_directory}' does not exist.")
-        return
+        return 1
 
     print(f"Starting batch process in: {root_directory}")
+    print(f"Parameters: baseline_weight={baseline_weight}, scale_factor={scale_factor}, "
+          f"gamma={gamma}, clamp_percentile={clamp_percentile}, "
+          f"active_threshold={active_threshold}")
     print("===================================================")
     
     success_count = 0
@@ -170,16 +185,17 @@ def process_all_directories(root_directory: str):
     for dirpath, dirnames, filenames in os.walk(root_directory):
         if "gt.obj" in filenames:
             obj_path = os.path.join(dirpath, "gt.obj")
-            json_output_path = os.path.join(dirpath, "gt_curvature.json")
+            json_output_path = os.path.join(dirpath, output_name)
             
-            if os.path.exists(json_output_path):
+            if os.path.exists(json_output_path) and not overwrite:
                 print(f"Skipping {os.path.basename(dirpath)} - already exists.")
                 continue
                 
             # Process Isolation: Protects the main loop from C++ Segfaults
             p = multiprocessing.Process(
                 target=compute_and_save_semantic_weights,
-                args=(obj_path, json_output_path, 1.0, 299.0, 2.0)
+                args=(obj_path, json_output_path, baseline_weight, scale_factor,
+                      gamma, active_threshold, clamp_percentile)
             )
             p.start()
             p.join() # Wait for the sub-process to finish
@@ -196,6 +212,7 @@ def process_all_directories(root_directory: str):
     print(f"Successfully processed: {success_count} meshes.")
     if fail_count > 0:
         print(f"Skipped due to critical C++ failure: {fail_count} meshes.")
+    return fail_count
 
 
 if __name__ == "__main__":
@@ -204,6 +221,23 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Compute curvature-based semantic weights for 3D meshes.")
     parser.add_argument("--root_dir", type=str, default="./gathered_objects", help="Root directory containing experiment folders.")
-    args = parser.parse_args() 
+    parser.add_argument("--output_name", type=str, default="gt_curvature.json", help="Name of the weights JSON written next to each gt.obj.")
+    parser.add_argument("--overwrite", action="store_true", help="Recompute weights even if the JSON already exists.")
+    parser.add_argument("--baseline_weight", type=float, default=1.0, help="Weight of flat areas (default: 1.0).")
+    parser.add_argument("--scale_factor", type=float, default=299.0, help="Added to the baseline for the most curved vertices (default: 299.0).")
+    parser.add_argument("--gamma", type=float, default=2.0, help="Exponent of the normalised curvedness (default: 2.0).")
+    parser.add_argument("--clamp_percentile", type=float, default=90.0, help="Percentile of active curvatures used for clamping (default: 90.0).")
+    parser.add_argument("--active_threshold", type=float, default=1e-5, help="Curvature below this is considered flat (default: 1e-5).")
+    args = parser.parse_args()
     ROOT_DIR = args.root_dir
-    process_all_directories(ROOT_DIR)
+    failed = process_all_directories(
+        ROOT_DIR,
+        args.output_name,
+        args.overwrite,
+        args.baseline_weight,
+        args.scale_factor,
+        args.gamma,
+        args.active_threshold,
+        args.clamp_percentile
+    )
+    raise SystemExit(1 if failed else 0)

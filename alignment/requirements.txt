@@ -1,0 +1,4 @@
+# Optional environment for the camera-alignment script. Not needed to
+# reproduce Table 4; see alignment/README.md.
+numpy<2
+open3d==0.17.0

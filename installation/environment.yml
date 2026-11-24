@@ -1,0 +1,31 @@
+# Conda environment for the SHREC 2026 FACD reproducibility package.
+#
+# PyTorch is intentionally not listed here: installation/install_dependencies.sh
+# installs the CPU (torch 2.7.1) or CUDA 11.8 (torch 2.6.0) wheel from the
+# official PyTorch index, because the correct wheel depends on the target machine.
+#
+# Create the environment with:
+#   bash installation/install_dependencies.sh
+#
+# or manually:
+#   conda env create -p .env -f installation/environment.yml
+#   # CPU:
+#   .env/bin/python -m pip install torch==2.7.1 \
+#       --index-url https://download.pytorch.org/whl/cpu
+#   # CUDA 11.8:
+#   .env/bin/python -m pip install torch==2.6.0 torchvision==0.21.0 \
+#       torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu118
+name: shrec2026-facd
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - numpy==2.2.6
+      - scipy==1.15.3
+      - meshio==5.3.5
+      - libigl==2.5.1
+      - psutil==7.2.2
+      - matplotlib==3.10.3
+      - pyyaml==6.0.2

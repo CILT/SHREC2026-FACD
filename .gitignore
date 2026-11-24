@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local installation and data (installation/install_dependencies.sh, download/*.sh)
+.miniforge/
+.env/
+.align-env/
+/data/
+# Temporary working files of the authors; not part of the submission.
+/dataset/
+**/zenodo_dataset_*/
+/results/*
+!/results/README.md

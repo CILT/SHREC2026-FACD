@@ -6,10 +6,15 @@ import warnings
 from collections import namedtuple
 from typing import Optional, Union
 
+import numpy as np
 import torch
 
-# Throws an error without this import
-from chamferdist import _C
+# Compiled C++/CUDA KNN (see setup.py). If it has not been built, an exact
+# KD-tree nearest-neighbour search (scipy) is used instead for K=1.
+try:
+    from localchamferdist import _C
+except ImportError:
+    _C = None
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 
@@ -270,6 +275,19 @@ def knn_points(
     if lengths2 is None:
         lengths2 = torch.full((p1.shape[0],), P2, dtype=torch.int64, device=p1.device)
 
+    # The brute-force CPU kernel is impractical for millions of points, so CPU
+    # tensors (or a missing extension) go through the exact KD-tree search,
+    # unless gradients are needed and the extension is available.
+    needs_grad = p1.requires_grad or p2.requires_grad
+    if _C is None or (p1.device.type == "cpu" and not needs_grad):
+        if K != 1:
+            raise NotImplementedError("The KD-tree fallback only supports K=1.")
+        if needs_grad:
+            warnings.warn("localchamferdist._C is not built: the KD-tree search is not differentiable.")
+        p1_dists, p1_idx = _knn_points_kdtree(p1, p2, lengths1, lengths2)
+        p2_nn = knn_gather(p2, p1_idx, lengths2) if return_nn else None
+        return _KNN(dists=p1_dists, idx=p1_idx, knn=p2_nn)
+
     # pyre-fixme[16]: `_knn_points` has no attribute `apply`.
     p1_dists, p1_idx = _knn_points.apply(
         p1, p2, lengths1, lengths2, K, version, return_sorted
@@ -280,6 +298,32 @@ def knn_points(
         p2_nn = knn_gather(p2, p1_idx, lengths2)
 
     return _KNN(dists=p1_dists, idx=p1_idx, knn=p2_nn if return_nn else None)
+
+
+def _knn_points_kdtree(p1, p2, lengths1, lengths2):
+    """
+    Exact 1-nearest-neighbour search with scipy's cKDTree. Same outputs as
+    _knn_points for K=1 (squared distances and indices, zero padded), but not
+    differentiable: it is meant for evaluation only.
+    """
+    from scipy.spatial import cKDTree
+
+    N, P1, _ = p1.shape
+    dists = np.zeros((N, P1, 1), dtype=np.float32)
+    idx = np.zeros((N, P1, 1), dtype=np.int64)
+    for n in range(N):
+        l1, l2 = int(lengths1[n]), int(lengths2[n])
+        if l1 == 0 or l2 == 0:
+            continue
+        a = p1[n, :l1].detach().cpu().numpy().astype(np.float64)
+        b = p2[n, :l2].detach().cpu().numpy().astype(np.float64)
+        d, i = cKDTree(b).query(a, k=1, workers=-1)
+        dists[n, :l1, 0] = d**2
+        idx[n, :l1, 0] = i
+    return (
+        torch.from_numpy(dists).to(p1.device),
+        torch.from_numpy(idx).to(p1.device),
+    )
 
 
 def knn_gather(
